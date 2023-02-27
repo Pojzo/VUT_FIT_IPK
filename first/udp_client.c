@@ -3,5 +3,6 @@
 
 // run the udp client given the host and port
 void run_udp_client(const char *host, int port) {
-    return 0;
+    (void) host;
+    (void) port;
 }

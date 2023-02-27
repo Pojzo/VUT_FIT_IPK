@@ -37,6 +37,13 @@ int main(int argc, char *argv[]) {
     }
 
     char *port = argv[4];
+    // check if port is number
+    for (size_t i = 0; i < strlen(port); i++) {
+        if (port[i] < '0' || port[i] > '9') {
+            print_usage("Invalid port");
+            exit(1);
+        }
+    }
 
     char *mode_arg = argv[5];
     if (strcmp(mode_arg, "-m") != 0) {
@@ -51,12 +58,10 @@ int main(int argc, char *argv[]) {
     }
     
     printf("host: %s, port: %s, mode: %s\n", host, port, mode);
-    return 0;
     if (strcmp(mode, "tcp") == 0) {
-        run_tcp_client(host, port);
+        run_tcp_client(host, atoi(port)); 
     } else {
-        run_udp_client(host, port);
+        run_udp_client(host, atoi(port));
     }
-
     return 0;
 }
