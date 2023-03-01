@@ -7,8 +7,17 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "tcp_client.h"
+
+static volatile int keep_running = 1;
+
+void int_handler(int) {
+    signal(SIGINT, sig_handler);
+    keep_running = 0;
+    fflush(stdout);
+}
 
 #define bufsize 1024
 
@@ -56,12 +65,13 @@ void run_tcp_client(const char *host, int port) {
         exit(1);
     }
     // ---------------------------- send and receive message ----------------------------
-    
-    while (1) {
+   
+
+    while (keep_running) {
         bzero(buffer, bufsize);
         if (fgets(buffer, bufsize, stdin) == NULL) {
             fprintf(stderr, "ERROR: Failed to read message from stdin\n");
-            exit(1);
+            break;
         }
         
         bytes_sent = send(client_socket, buffer, strlen(buffer), 0);
@@ -81,7 +91,7 @@ void run_tcp_client(const char *host, int port) {
         if (strncmp(buffer, "BYE", 3) == 0) {
             break;
         }
-
     }
     close(client_socket);
+    printf("Closed connection to server\n");
 } 
