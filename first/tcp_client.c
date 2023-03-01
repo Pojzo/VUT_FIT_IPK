@@ -11,15 +11,15 @@
 
 #include "tcp_client.h"
 
-static volatile int keep_running = 1;
-
-void int_handler(int) {
-    signal(SIGINT, sig_handler);
-    keep_running = 0;
-    fflush(stdout);
-}
-
 #define bufsize 1024
+
+
+volatile sig_atomic_t should_exit = 0;
+
+void sigint_handler(int sig) {
+    (void) sig;
+    should_exit = 1;
+}
 
 // run the tcp client with given host and port
 void run_tcp_client(const char *host, int port) {
@@ -67,7 +67,13 @@ void run_tcp_client(const char *host, int port) {
     // ---------------------------- send and receive message ----------------------------
    
 
-    while (keep_running) {
+    while (1) {
+        if (should_exit) {
+            const char *bye_msg = "BYE";
+            bytes_sent = send(client_socket, bye_msg, strlen(bye_msg), 0);
+            // we don't care if it was sent or not
+            break;
+        }
         bzero(buffer, bufsize);
         if (fgets(buffer, bufsize, stdin) == NULL) {
             fprintf(stderr, "ERROR: Failed to read message from stdin\n");
