@@ -51,28 +51,37 @@ void run_tcp_client(const char *host, int port) {
         exit(1);
     }
 
-    bzero(buffer, bufsize);
-    printf("INFO: Enter the message: ");
-    if (fgets(buffer, bufsize, stdin) == NULL) {
-        fprintf(stderr, "ERROR: Failed to read message from stdin\n");
-        exit(1);
-    }
-
     if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
         fprintf(stderr, "ERROR: Failed to connect to server\n");
         exit(1);
     }
+    // ---------------------------- send and receive message ----------------------------
     
-    bytes_sent = send(client_socket, buffer, strlen(buffer), 0);
-    if (bytes_sent < 0) {
-        fprintf(stderr, "ERROR: Failed to send message to server\n");
-        exit(1);
+    while (1) {
+        bzero(buffer, bufsize);
+        if (fgets(buffer, bufsize, stdin) == NULL) {
+            fprintf(stderr, "ERROR: Failed to read message from stdin\n");
+            exit(1);
+        }
+        
+        bytes_sent = send(client_socket, buffer, strlen(buffer), 0);
+        if (bytes_sent < 0) {
+            fprintf(stderr, "ERROR: Failed to send message to server\n");
+            exit(1);
+        }
+        bzero(buffer, bufsize);
+        bytes_received = recv(client_socket, buffer, bufsize, 0);
+        if (bytes_received < 0) {
+            fprintf(stderr, "ERROR: Failed to receive message from server\n");
+            exit(1);
+        }
+
+        printf("%s", buffer);
+        
+        if (strncmp(buffer, "BYE", 3) == 0) {
+            break;
+        }
+
     }
-    bytes_received = recv(client_socket, buffer, bufsize, 0);
-    if (bytes_received < 0) {
-        fprintf(stderr, "ERROR: Failed to receive message from server\n");
-        exit(1);
-    }
-    printf("INFO: Received message from server: %s\n", buffer);
     close(client_socket);
 } 
