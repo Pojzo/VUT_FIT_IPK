@@ -27,7 +27,7 @@ void run_udp_client(const char *host, int port) {
     int server_port = port;
 
     if ((server = gethostbyname(server_hostname)) == NULL) {
-        fprintf(stderr, "ERROR: no such host as %s)", server_hostname);
+        fprintf(stderr, "ERROR: no such host as %s\n", server_hostname);
         exit(1);
     }
 
@@ -40,74 +40,82 @@ void run_udp_client(const char *host, int port) {
 
 
     if ((client_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        fprintf(stderr, "ERROR: could not create socket");
+        fprintf(stderr, "ERROR: could not create socket\n");
         exit(1);
     }
     
-
-    bzero(buf, bufsize);
-    // printf("Enter a message: ");
-    fgets(buf, bufsize, stdin);
-    uint8_t opcode = 0;
-    uint8_t buffer_len = strlen(buf);
-
-    int total_len = 2 + buffer_len;
-    char *payload = malloc(total_len);
-
-    memcpy(payload, &opcode, sizeof(opcode));
-    memcpy(payload + sizeof(opcode), &buffer_len, sizeof(buffer_len));
-
-    memcpy(payload + sizeof(opcode) + sizeof(buffer_len), buf, buffer_len);
     
-    // print_bits(payload, total_len);
-    /*
-    printf("\n");
-    printf("Payload: ");
-    for (int i = 0; i < total_len; i++) {
-        for (int j = 7; j >= 0; j--) {
-            if (payload[i] & (1 << j)) {
-                printf("1");
-            } else {
-                printf("0");
-            }
+    while (1) {
+        bzero(buf, bufsize);
+        // printf("Enter a message: ");
+        fgets(buf, bufsize, stdin);
+        uint8_t opcode = 0;
+        uint8_t buffer_len = strlen(buf);
+
+        int total_len = 2 + buffer_len;
+        char *payload = malloc(total_len);
+
+        memcpy(payload, &opcode, sizeof(opcode));
+        memcpy(payload + sizeof(opcode), &buffer_len, sizeof(buffer_len));
+
+        memcpy(payload + sizeof(opcode) + sizeof(buffer_len), buf, buffer_len);
+
+        // print_bits(payload, total_len);
+        /*
+           printf("\n");
+           printf("Payload: ");
+           for (int i = 0; i < total_len; i++) {
+           for (int j = 7; j >= 0; j--) {
+           if (payload[i] & (1 << j)) {
+           printf("1");
+           } else {
+           printf("0");
+           }
+           }
+           printf(" ");
+           }
+           printf("\n");
+           */
+
+        serverlen = sizeof(server_address);
+        bytes_sent = sendto(client_socket, payload, total_len, 0, (struct sockaddr *) &server_address, serverlen);
+        if (bytes_sent < 0) {
+            fprintf(stderr, "ERROR: could not send message\n");
+            exit(1);
         }
-        printf(" ");
-    }
-    printf("\n");
-    */
+        // printf("Payload has been sent\n");
 
-    serverlen = sizeof(server_address);
-    bytes_sent = sendto(client_socket, payload, total_len, 0, (struct sockaddr *) &server_address, serverlen);
-    if (bytes_sent < 0) {
-        fprintf(stderr, "ERROR: could not send message");
-        exit(1);
-    }
-    // printf("Payload has been sent\n");
+        free(payload);
+        bzero(buf, bufsize);
+        bytes_received = recvfrom(client_socket, buf, bufsize, 0, (struct sockaddr *) &server_address, &serverlen);
+        if (bytes_received < 0) {
+            fprintf(stderr, "ERROR: could not receive message\n");
+            exit(1);
+        }
+        // print_bits(buf, bytes_received);
 
-    free(payload);
-    bzero(buf, bufsize);
-    bytes_received = recvfrom(client_socket, buf, bufsize, 0, (struct sockaddr *) &server_address, &serverlen);
-    if (bytes_received < 0) {
-        fprintf(stderr, "ERROR: could not receive message");
-        exit(1);
-    }
-    // print_bits(buf, bytes_received);
-    
-    uint8_t recv_opcode = buf[0];
-    uint8_t status_code = buf[1];
-    uint8_t recv_buffer_len = buf[2];
-    printf("Opcode: %d\n", recv_opcode);
-    printf("Status Code: %d\n", status_code);
-    printf("Payload Length: %d\n", recv_buffer_len);
-    char *recv_buffer = malloc(recv_buffer_len);
-    memcpy(recv_buffer, buf + 3, recv_buffer_len);
-    
-    printf("Received message: ");
-    for (int i = 0; i < recv_buffer_len; i++) {
-        printf("%c", recv_buffer[i]);
-    }
+        uint8_t recv_opcode = buf[0];
+        uint8_t status_code = buf[1];
+        uint8_t recv_buffer_len = buf[2];
+        
+        if ((int)status_code == 1) {
+            fprintf(stderr, "ERROR: invalid message\n");
+            exit(1);
+        }
 
-    printf("\n");
+        printf("Opcode: %d\n", recv_opcode);
+        printf("Status Code: %d\n", status_code);
+        printf("Payload Length: %d\n", recv_buffer_len);
+        char *recv_buffer = malloc(recv_buffer_len);
+        memcpy(recv_buffer, buf + 3, recv_buffer_len);
+
+        printf("Received message: ");
+        for (int i = 0; i < recv_buffer_len; i++) {
+            printf("%c", recv_buffer[i]);
+        }
+
+        printf("\n");
+    }
 }
 
 void print_bits(char *buffer, size_t buffer_len) {
