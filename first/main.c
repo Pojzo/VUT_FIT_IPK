@@ -57,7 +57,6 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
     
-    printf("host: %s, port: %s, mode: %s\n", host, port, mode);
     if (strcmp(mode, "tcp") == 0) {
         run_tcp_client(host, atoi(port)); 
     } else {
