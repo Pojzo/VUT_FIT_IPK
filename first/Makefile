@@ -5,13 +5,13 @@ CC = gcc
 CFLAGS = -Wall -Wextra -g
 
 # Source files
-SRCS = main.c tcp_client.c udp_client.c
+SRCS = main.c tcp_client.c udp_client.c common.c
 
 # Object files
 OBJS = $(SRCS:.c=.o)
 
 # Header files
-HDRS = tcp_client.h udp_client.h
+HDRS = tcp_client.h udp_client.h common.h
 
 # Target executable
 TARGET = ipkcpc

@@ -1,27 +1,5 @@
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <signal.h>
-#include <netdb.h>
-#include <netinet/in.h>
-
-
+#include "common.h"
 #include "tcp_client.h"
-
-#define bufsize 1024
-
-typedef struct sockaddr_in sockaddr_in_t;
-typedef struct hostent hostent_t;
-
-typedef struct sockaddr_in* sockaddr_in_ptr;
-typedef struct hostent* hostent_ptr;
-
-typedef struct sockaddr* sockaddr_ptr;
 
 
 volatile sig_atomic_t should_exit = 0;
@@ -32,36 +10,6 @@ volatile sig_atomic_t should_exit = 0;
         printf("IP Address: %s\n", inet_ntoa(*addr_list[i]));
     }
 */
-
-static void error_message(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
-}
-
-// returns pointer to the hostent struct
-static hostent_ptr get_server_host(const char *host) {
-    hostent_ptr server;
-    if ((server = gethostbyname(host)) == NULL) {
-        error_message("ERROR: no such host as %s\n", host);
-        exit(1);
-    }
-    
-    return server;
-}
-
-// returns the server address struct
-static sockaddr_in_t get_server_address(hostent_ptr server, int port) {
-    sockaddr_in_t server_addr;
-
-    bzero((char *) &server_addr, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr, (char *)&server_addr.sin_addr.s_addr, server->h_length);
-    server_addr.sin_port = htons(port);
-
-    return server_addr;
-}
 
 static inline int get_client_socket() {
     int client_socket;

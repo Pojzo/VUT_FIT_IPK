@@ -1,16 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <stdint.h>
-
+#include "common.h"
 #include "udp_client.h"
 
-#define bufsize 1024
 
 void print_bits(char *buffer, size_t buffer_len);
 
