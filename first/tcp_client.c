@@ -34,7 +34,7 @@ void run_tcp_client(const char *host, int port) {
     int bytes_sent, bytes_received;
     char buffer[bufsize];
 
-    hostent_t *server = get_server_host(host);
+    hostent_ptr server = get_server_host(host);
 
     sockaddr_in_t server_addr = get_server_address(server, port);
 
