@@ -17,7 +17,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 
-
 #ifndef TCP_CLIENT_H
 #define TCP_CLIENT_H
 
