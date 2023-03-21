@@ -42,11 +42,10 @@ void run_udp_client(const char *host, int port) {
 
         memcpy(payload, &opcode, sizeof(opcode));
         memcpy(payload + sizeof(opcode), &buffer_len, sizeof(buffer_len));
-
-        printf("%d\n", __LINE__);
         memcpy(payload + sizeof(opcode) + sizeof(buffer_len), buf, buffer_len);
 
         serverlen = sizeof(server_address);
+ 
         printf("%d\n", __LINE__);
         bytes_sent = sendto(client_socket, payload, total_len, 0, (sockaddr_ptr) &server_address, serverlen);
         printf("%d\n", __LINE__);
