@@ -1,6 +1,7 @@
 #include <stdio.h>
+#include "arg_handler.h"
 
-int main() {
-    printf("Hello World\n");
+int main(int argc, char *argv[]) {
+    argument_t *arguments = parse_arguments(argc, argv);
     return 0;
 }

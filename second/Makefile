@@ -1,7 +1,7 @@
 CC=gcc
-SRC_FILES=main.c
+SRC_FILES=main.c arg_handler.c
 
-HEADERS=
+HEADERS=arg_handler.h
 
 OBJ_FILES=$(SRC_FILES:.c=.o)
 
