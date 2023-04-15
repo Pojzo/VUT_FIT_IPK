@@ -253,9 +253,8 @@ int run_sniffer(argument_t *arguments) {
         fprintf(stderr, "Couldn't install filter %s\nError message: %s\n", filter_exp, pcap_geterr(device_handle));
         return exit_free(arguments, all_devs, 1);
     }
-    printf("The syntax was correct\n");
-    free(filter_exp);
-    return exit_free(arguments, all_devs, 0);
+    printf("Filter: %s\n", filter_exp);
+    // free(filter_exp);
     pcap_loop(device_handle, arguments->n_packets, got_packet, NULL);
     /*
        packet = pcap_next(device_handle, &header);
