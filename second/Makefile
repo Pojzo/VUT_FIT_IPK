@@ -1,7 +1,8 @@
 CC=gcc
-SRC_FILES=main.c arg_handler.c
 
-HEADERS=arg_handler.h
+SRC_FILES=$(wildcard *.c)
+
+HEADERS=$(wildcard *.h)
 
 OBJ_FILES=$(SRC_FILES:.c=.o)
 
