@@ -4,10 +4,6 @@
 
 #include "arg_handler.h"
 
-// command line options
-const char* options[] = {"--interface", "-i", "-n", "-p", "--tcp", "-t", "--udp", "-u", "--arp", "--icmp4", "--icmp6", "--igmp", "--mld"};
-
-
 // print error message, free arguments and return with given exit code
 static void *return_free(argument_t *arguments, const char *msg) {
     fprintf(stderr, msg);
