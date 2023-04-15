@@ -22,6 +22,7 @@ typedef struct argument {
 } argument_t;
 
 argument_t *parse_arguments(int argc, char *argv[]);
+void arguments_free(argument_t *arguments);
 
 
 #endif

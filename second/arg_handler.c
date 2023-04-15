@@ -9,13 +9,18 @@ const char* options[] = {"--interface", "-i", "-n", "-p", "--tcp", "-t", "--udp"
 
 
 // print error message, free arguments and return with given exit code
-static void exit_free(argument_t *arguments, const char *msg, uint8_t return_code) {
+static void *return_free(argument_t *arguments, const char *msg) {
     fprintf(stderr, msg);
+    arguments_free(arguments);
+    return NULL;
+}
+
+// free arguments->interface if it's defined and the pointer itself
+void arguments_free(argument_t *arguments) {
     if (arguments->interface != NULL) {
         free(arguments->interface);
     }
     free(arguments);
-    exit(return_code);
 }
 
 // return true if all digits in 'value' are numbers
@@ -60,7 +65,7 @@ argument_t *parse_arguments(int argc, char *argv[]) {
     arguments->mld = false;
     arguments->port_specified = false;
     arguments->n_packets_specified = false;
-    
+
     for (int8_t i = 1; i < argc; i++) {
         const char *cur_arg = argv[i];
         if (strcmp(cur_arg, "--interface") == 0 || strcmp(cur_arg, "-i") == 0) {
@@ -78,7 +83,7 @@ argument_t *parse_arguments(int argc, char *argv[]) {
         else if (strcmp(cur_arg, "-n") == 0) {
             if (i + 1 < argc) {
                 if (is_option(argv[i + 1])) continue;
-                if (!is_number(argv[i + 1])) exit_free(arguments, "Number of packets must be a number\n", 1);
+                if (!is_number(argv[i + 1])) return return_free(arguments, "Number of packets must be a number\n");
 
                 arguments->n_packets = (uint16_t) atoi(argv[i + 1]);
                 arguments->n_packets_specified = true;
@@ -88,7 +93,7 @@ argument_t *parse_arguments(int argc, char *argv[]) {
         else if (strcmp(cur_arg, "-p") == 0) {
             if (i + 1 < argc) {
                 if (is_option(argv[i + 1])) continue;
-                if (!is_number(argv[i + 1])) exit_free(arguments, "Port must be a number\n", 1);
+                if (!is_number(argv[i + 1])) return return_free(arguments, "Port must be a number\n");
 
                 arguments->port = (uint16_t) atoi(argv[i + 1]);
                 arguments->port_specified = true;
@@ -118,7 +123,7 @@ argument_t *parse_arguments(int argc, char *argv[]) {
             arguments->mld = true;
         }
         else {
-            exit_free(arguments, "Invalid argument\n", 1); 
+            return return_free(arguments, "Invalid argument\n");
         }
 
     }
@@ -126,7 +131,7 @@ argument_t *parse_arguments(int argc, char *argv[]) {
     // if not only interface was specified, we need to make sure that interface has a value
     if (!arguments->interface_only) {
         if (arguments->interface == NULL) {
-            exit_free(arguments, "No interface was specified\n", 1);
+            return return_free(arguments, "No interface was specified\n");
         }
     }
     return arguments;
