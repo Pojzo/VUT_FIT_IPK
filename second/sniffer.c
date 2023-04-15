@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pcap/pcap.h>
+#include <netpacket/packet.h>
 #include <time.h>
 #include <math.h>
+#include <string.h>
 
 #include "arg_handler.h"
+#include "network_structures.h"
 
 #define PROMISCUOUS_MODE 1
 #define SNAPLEN 100
@@ -64,15 +67,76 @@ static char* format_time(long seconds, long microseconds) {
     return final_time;
 }
 
-void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
+#define SIZE_ETHERNET 14
+
+static void print_mac(const unsigned char *mac) {
+    for (int i = 0; i < ETHER_ADDR_LEN; i++) {
+        printf("%02x", mac[i]);
+        if (i < ETHER_ADDR_LEN - 1) {
+            printf(":");
+        }
+    }
+    printf("\n");
+}
+
+static void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
     (void) args;
     (void) packet;
     long sec = header->ts.tv_sec;
     long usec = header->ts.tv_usec;
     char *timestamp = format_time(sec, usec);
     printf("A packet was received\n");
-    printf("Timestamp: %s\n", timestamp);
+    printf("timestamp: %s\n", timestamp);
     free(timestamp);
+
+    unsigned int frame_length = header->len;
+
+    const struct sniff_ethernet *ethernet; // The ethernet header
+    const struct sniff_ip *ip; // The IP header
+    const struct sniff_tcp *tcp;
+    // const char *payload; // Packet payload
+
+    // Define ethernet header
+    ethernet = (struct sniff_ethernet*)(packet);
+
+    // Define/compute IP header offset
+    ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
+    
+    // define tcp 
+    tcp = (struct sniff_tcp*)(packet + SIZE_ETHERNET + IP_HL(ip));
+
+    // Extract source and destination IP addresses
+    char src_ip_str[INET_ADDRSTRLEN], dst_ip_str[INET_ADDRSTRLEN];
+    const unsigned char *src_mac_str;
+    const unsigned char *dest_mac_str;
+
+    unsigned short src_port = ntohs(tcp->th_sport);
+    unsigned short dst_port = ntohs(tcp->th_dport);
+
+    inet_ntop(AF_INET, &(ip->ip_src), src_ip_str, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &(ip->ip_dst), dst_ip_str, INET_ADDRSTRLEN);
+
+    src_mac_str = ethernet->ether_dhost;
+    dest_mac_str = ethernet->ether_shost;
+    
+    // print the mac addresses
+    printf("src MAC: ");
+    print_mac(src_mac_str);
+    printf("dst MAC: ");
+    print_mac(dest_mac_str);
+
+    // print the frame length
+    printf("frame length: %d\n", (int) frame_length);
+
+    // print the source and destination ips
+    printf("src IP: %s\n", src_ip_str);
+    printf("dest IP: %s\n", dst_ip_str);
+
+
+    // print the source and destination ports
+    printf("src port: %d\n", (int) src_port); 
+    printf("dest port: %d\n", (int) dst_port);
+
 }
 
 int run_sniffer(argument_t *arguments) {
@@ -123,7 +187,7 @@ int run_sniffer(argument_t *arguments) {
         fprintf(stderr, "Couldn't install filter %s\nError message: %s\n", filter_exp, pcap_geterr(device_handle));
         return exit_free(arguments, all_devs, 1);
     }
-    pcap_loop(device_handle, 1, got_packet, NULL);
+    pcap_loop(device_handle, arguments->n_packets, got_packet, NULL);
     /*
        packet = pcap_next(device_handle, &header);
        (void) packet;
