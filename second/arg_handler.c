@@ -49,6 +49,17 @@ argument_t *parse_arguments(int argc, char *argv[]) {
     arguments->port = 0; // port 0 means don't filter anything
     arguments->interface = NULL; 
     arguments->interface_only = true; // whenever there is another argument supplied, change this to false
+                                      //
+
+    arguments->tcp = false;
+    arguments->udp = false;
+    arguments->arp = false;
+    arguments->icmp4 = false;
+    arguments->icmp6 = false;
+    arguments->igmp = false;
+    arguments->mld = false;
+    arguments->port_specified = false;
+    arguments->n_packets_specified = false;
     
     for (int8_t i = 1; i < argc; i++) {
         const char *cur_arg = argv[i];
