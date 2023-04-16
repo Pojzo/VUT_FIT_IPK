@@ -16,6 +16,7 @@ all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJ_FILES)
 	$(CC) $(CFLAGS) $(OBJ_FILES) -o $@ $(LDFLAGS)
+
 %.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 

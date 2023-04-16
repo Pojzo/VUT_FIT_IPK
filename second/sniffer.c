@@ -5,6 +5,8 @@
 #include <time.h>
 #include <math.h>
 #include <string.h>
+#include <ctype.h>
+
 
 #include "arg_handler.h"
 #include "network_structures.h"
@@ -54,7 +56,7 @@ static int list_interfaces(pcap_if_t *all_devs) {
 #define TIMESTAMP_BUFFER_LEN 80
 
 static char* format_time(long seconds, long microseconds) {
-       char* buffer = malloc(sizeof(char) * 80);
+    char* buffer = malloc(sizeof(char) * 80);
     struct tm timeinfo;
 
     localtime_r(&seconds, &timeinfo);
@@ -93,7 +95,6 @@ static void print_mac(const unsigned char *mac) {
 
 static void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
     (void) args;
-    (void) packet;
     long sec = header->ts.tv_sec;
     long usec = header->ts.tv_usec;
     char *timestamp = format_time(sec, usec);
@@ -113,7 +114,22 @@ static void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_c
 
     // Define/compute IP header offset
     ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
-    
+
+    unsigned char protocol = ip->ip_p;
+    switch (ip->ip_p) {
+        case IPPROTO_TCP:
+            printf("This is a TCP packet\n");
+            break;
+        case IPPROTO_UDP:
+            printf("This is a UDP packet\n");
+            break;
+        case IPPROTO_ICMP:
+            printf("This is a ICMP packet\n");
+            break;
+        default:
+            break;
+    }
+
     // define tcp 
     tcp = (struct sniff_tcp*)(packet + SIZE_ETHERNET + IP_HL(ip));
 
@@ -130,7 +146,7 @@ static void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_c
 
     src_mac_str = ethernet->ether_dhost;
     dest_mac_str = ethernet->ether_shost;
-    
+
     // print the mac addresses
     printf("src MAC: ");
     print_mac(src_mac_str);
@@ -144,11 +160,39 @@ static void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_c
     printf("src IP: %s\n", src_ip_str);
     printf("dest IP: %s\n", dst_ip_str);
 
-
     // print the source and destination ports
-    printf("src port: %d\n", (int) src_port); 
-    printf("dest port: %d\n", (int) dst_port);
+    if (protocol == IPPROTO_TCP || protocol == IPPROTO_UDP) {
+        printf("src port: %d\n", (int) src_port); 
+        printf("dest port: %d\n", (int) dst_port);
+    }
 
+    unsigned char buffer[16];
+    for (unsigned int i = 0; i < frame_length; i++) {
+        buffer[i % 16] = packet[i];
+        if (i % 16 == 0) {
+            printf(" ");
+            if (i != 0) {
+                for (unsigned int x = 0; x < 16; x++) {
+                    if (isprint(buffer[x % 16])) {
+                        printf("%c", buffer[x % 16]);
+                    } else {
+                        printf(".");
+                    }
+                }
+            }
+            printf("\n0x%04x: ", i);
+        }
+        printf("%02x ", packet[i]);
+    }
+    // print the remaining part
+    for (unsigned int x = 0; x < 16 - (frame_length % 16); x++) {
+        if (isprint(buffer[x % 16])) {
+            printf("%c", buffer[x % 16]);
+        } else {
+            printf(".");
+        }
+    }
+    printf("\n");
 }
 
 // add new filter to filter_exp
@@ -212,10 +256,6 @@ int run_sniffer(argument_t *arguments) {
     bpf_u_int32 net;		// The IP of our sniffing device
     struct bpf_program fp;
     pcap_t *device_handle = NULL;
-    struct pcap_pkthdr header;
-    const u_char *packet;		// The actual pack
-    (void) packet;
-    (void) header;
 
     // if this is true, list all interfaces
     if (arguments->interface_only && arguments->interface == NULL) {
@@ -256,13 +296,6 @@ int run_sniffer(argument_t *arguments) {
     printf("Filter: %s\n", filter_exp);
     // free(filter_exp);
     pcap_loop(device_handle, arguments->n_packets, got_packet, NULL);
-    /*
-       packet = pcap_next(device_handle, &header);
-       (void) packet;
-       printf("Jacked a packet with length of [%d]\n", header.len);
-
-       pcap_close(device_handle);
-       */
 
     return exit_free(arguments, all_devs, 0);
 }
