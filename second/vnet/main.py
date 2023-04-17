@@ -2,7 +2,7 @@ import time
 from scapy.all import *
 
 src_ip = '192.168.1.100'
-dst_ip = '127.0.0.1'
+dst_ip = '10.0.2.15'
 
 
 ip = IP(src=src_ip, dst=dst_ip)

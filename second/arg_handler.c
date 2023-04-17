@@ -55,6 +55,7 @@ argument_t *parse_arguments(int argc, char *argv[]) {
     arguments->tcp = false;
     arguments->udp = false;
     arguments->arp = false;
+    arguments->ndp = false;
     arguments->icmp4 = false;
     arguments->icmp6 = false;
     arguments->igmp = false;
@@ -117,6 +118,9 @@ argument_t *parse_arguments(int argc, char *argv[]) {
         }
         else if (strcmp(cur_arg, "--mld") == 0) {
             arguments->mld = true;
+        }
+        else if (strcmp(cur_arg, "--ndp") == 0) {
+            arguments->ndp = true;
         }
         else {
             return return_free(arguments, "Invalid argument\n");

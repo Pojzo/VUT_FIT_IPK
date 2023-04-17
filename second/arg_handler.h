@@ -14,6 +14,7 @@ typedef struct argument {
     bool tcp;
     bool udp;
     bool arp;
+    bool ndp;
     bool icmp4;
     bool icmp6;
     bool igmp;

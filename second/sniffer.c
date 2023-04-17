@@ -6,10 +6,13 @@
 #include <math.h>
 #include <string.h>
 #include <ctype.h>
-
+#include <netinet/tcp.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/if_ether.h>
+#include <arpa/inet.h>
+#include <netinet/ip.h>
 
 #include "arg_handler.h"
-#include "network_structures.h"
 
 #define PROMISCUOUS_MODE 1
 #define SNAPLEN 100
@@ -83,98 +86,118 @@ static char* format_time(long seconds, long microseconds) {
 
 #define SIZE_ETHERNET 14
 
-static void print_mac(const unsigned char *mac) {
-    for (int i = 0; i < ETHER_ADDR_LEN; i++) {
-        printf("%02x", mac[i]);
-        if (i < ETHER_ADDR_LEN - 1) {
-            printf(":");
+static void hex_dump(const u_char *packet, int len) {
+    int i, j;
+
+    for (i = 0; i < len; i += 16) {
+        printf("%06x: ", i);
+        for (j = 0; j < 16; j++) {
+            if (i + j < len) {
+                printf("%02x ", packet[i+j]);
+            } else {
+                printf("   ");
+            }
         }
+        printf(" ");
+        for (j = 0; j < 16; j++) {
+            if (i + j < len) {
+                u_char c = packet[i+j];
+                printf("%c", isprint(c) ? c : '.');
+            }
+        }
+        printf("\n");
     }
-    printf("\n");
 }
+
 
 static void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
     (void) args;
     long sec = header->ts.tv_sec;
     long usec = header->ts.tv_usec;
     char *timestamp = format_time(sec, usec);
-    printf("A packet was received\n");
     printf("timestamp: %s\n", timestamp);
     free(timestamp);
 
-    unsigned int frame_length = header->len;
+    int frame_length = header->len;
 
-    const struct sniff_ethernet *ethernet; // The ethernet header
-    const struct sniff_ip *ip; // The IP header
-    const struct sniff_tcp *tcp;
-    // const char *payload; // Packet payload
+    const struct ether_header *ethernet = (struct ether_header*) (packet);
+    const struct iphdr *ip_header = (struct iphdr*)(packet + SIZE_ETHERNET);
+    uint16_t ip_header_len = ip_header->ihl * 4;
 
-    // Define ethernet header
-    ethernet = (struct sniff_ethernet*)(packet);
+    struct udphdr *udp_header = (struct udphdr*)(packet + SIZE_ETHERNET + ip_header_len);
+    struct tcphdr *tcp_header = (struct tcphdr*)(packet + SIZE_ETHERNET + ip_header_len);
+    struct icmphdr *icmp_header = (struct icmphdr*)(packet + SIZE_ETHERNET + ip_header_len);
+    
+    (void) udp_header;
+    (void) tcp_header;
+    (void) icmp_header;
 
-    // Define/compute IP header offset
-    ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
-
-    unsigned char protocol = ip->ip_p;
-    switch (ip->ip_p) {
+    uint16_t src_port;
+    uint16_t dst_port;
+    unsigned char protocol = ip_header->protocol;
+    printf("%s\n", packet);
+    switch (protocol) {
         case IPPROTO_TCP:
             printf("This is a TCP packet\n");
+            src_port = ntohs(tcp_header->source);
+            dst_port = ntohs(tcp_header->dest);
             break;
         case IPPROTO_UDP:
-            printf("This is a UDP packet\n");
+            // printf("This is a UDP packet\n");
+            src_port = ntohs(tcp_header->source);
+            dst_port = ntohs(tcp_header->dest);
             break;
         case IPPROTO_ICMP:
             printf("This is a ICMP packet\n");
             break;
+        case IPPROTO_ICMPV6:
+            break;
+
         default:
             break;
     }
 
     // define tcp 
-    tcp = (struct sniff_tcp*)(packet + SIZE_ETHERNET + IP_HL(ip));
 
     // Extract source and destination IP addresses
-    char src_ip_str[INET_ADDRSTRLEN], dst_ip_str[INET_ADDRSTRLEN];
-    const unsigned char *src_mac_str;
-    const unsigned char *dest_mac_str;
+    unsigned char src_mac[18];
+    unsigned char dst_mac[18];
 
-    unsigned short src_port = ntohs(tcp->th_sport);
-    unsigned short dst_port = ntohs(tcp->th_dport);
+    char source_ip_str[INET_ADDRSTRLEN];
+    char dest_ip_str[INET_ADDRSTRLEN];
 
-    inet_ntop(AF_INET, &(ip->ip_src), src_ip_str, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, &(ip->ip_dst), dst_ip_str, INET_ADDRSTRLEN);
+    sprintf(src_mac, "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_shost[0], ethernet->ether_shost[1], ethernet->ether_shost[2], ethernet->ether_shost[3], ethernet->ether_shost[4], ethernet->ether_shost[5]);
+    sprintf(dst_mac, "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_dhost[0], ethernet->ether_dhost[1], ethernet->ether_dhost[2], ethernet->ether_dhost[3], ethernet->ether_dhost[4], ethernet->ether_dhost[5]);
 
-    src_mac_str = ethernet->ether_dhost;
-    dest_mac_str = ethernet->ether_shost;
+    inet_ntop(AF_INET, &(ip_header->saddr), source_ip_str, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &(ip_header->daddr), dest_ip_str, INET_ADDRSTRLEN);
 
     // print the mac addresses
-    printf("src MAC: ");
-    print_mac(src_mac_str);
-    printf("dst MAC: ");
-    print_mac(dest_mac_str);
+    printf("src MAC: %s\n", src_mac);
+    printf("dst MAC: %s\n", dst_mac);
 
     // print the frame length
     printf("frame length: %d\n", (int) frame_length);
 
     // print the source and destination ips
-    printf("src IP: %s\n", src_ip_str);
-    printf("dest IP: %s\n", dst_ip_str);
+    printf("src IP: %s\n", source_ip_str);
+    printf("dest IP: %s\n", dest_ip_str);
 
     // print the source and destination ports
     if (protocol == IPPROTO_TCP || protocol == IPPROTO_UDP) {
-        printf("src port: %d\n", (int) src_port); 
-        printf("dest port: %d\n", (int) dst_port);
+        printf("src port: %hu\n", src_port); 
+        printf("dest port: %hu\n", dst_port);
     }
 
     unsigned char buffer[16];
-    for (unsigned int i = 0; i < frame_length; i++) {
-        buffer[i % 16] = packet[i];
+
+    for (size_t i = 0; i < frame_length; i++) {
         if (i % 16 == 0) {
             printf(" ");
             if (i != 0) {
-                for (unsigned int x = 0; x < 16; x++) {
-                    if (isprint(buffer[x % 16])) {
-                        printf("%c", buffer[x % 16]);
+                for (size_t x = 0; x < 16; x++) {
+                    if (isprint(buffer[x])) {
+                        printf("%c", buffer[x]);
                     } else {
                         printf(".");
                     }
@@ -182,12 +205,18 @@ static void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_c
             }
             printf("\n0x%04x: ", i);
         }
+
+        buffer[i % 16] = packet[i];
         printf("%02x ", packet[i]);
     }
-    // print the remaining part
-    for (unsigned int x = 0; x < 16 - (frame_length % 16); x++) {
-        if (isprint(buffer[x % 16])) {
-            printf("%c", buffer[x % 16]);
+
+    // Print any remaining bytes in the buffer
+    for (int i = frame_length % 16; i < 16; i++) {
+        printf("   ");
+    }
+    for (int i = frame_length - (frame_length % 16); i < frame_length; i++) {
+        if (isprint(buffer[i % 16])) {
+            printf("%c", buffer[i % 16]);
         } else {
             printf(".");
         }
@@ -226,7 +255,14 @@ static char *create_filter_exp(argument_t *arguments) {
     uint8_t offset = 0;
     (void) offset;
     if (arguments->tcp) {
-        add_new_filter(&filter_exp, TCP_FILTER_STRING);
+        if (arguments->port_specified) {
+            char buf[15];
+            sprintf(buf, "%s port %d", TCP_FILTER_STRING, (int) arguments->port);
+            add_new_filter(&filter_exp, buf);
+        }
+        else {
+            add_new_filter(&filter_exp, TCP_FILTER_STRING);
+        }
     }
     if (arguments->udp) {
         add_new_filter(&filter_exp, UDP_FILTER_STRING);
@@ -237,14 +273,34 @@ static char *create_filter_exp(argument_t *arguments) {
     if (arguments->icmp4) {
         add_new_filter(&filter_exp, ICMP4_FILTER_STRING);
     }
+    
+    if (arguments->ndp && arguments->mld) {
+        char buf[100];
+        sprintf(buf, "%s and (icmp6[0] == 135 or icmp6[0] == 136 or icmp6[0]== 130 or icmp6[0] == 131)", ICMP6_FILTER_STRING);
+        add_new_filter(&filter_exp, buf);
+        // nestaram fakt more
+        goto jump;
+    }
+
+    if (arguments->ndp) {
+        char buf[45];
+        sprintf(buf, "%s and (icmp6[0] == 135 or icmp6[0] == 136)", ICMP6_FILTER_STRING);
+        add_new_filter(&filter_exp, buf);
+        goto jump;
+    }
+    if (arguments->mld) {
+        char buf[45];
+        sprintf(buf, "%s and (icmp6[0]== 130 or icmp6[0] == 131)", ICMP6_FILTER_STRING);
+        add_new_filter(&filter_exp, buf);
+        goto jump;
+    }
     if (arguments->icmp6) {
         add_new_filter(&filter_exp, ICMP6_FILTER_STRING);
     }
+jump:
+
     if (arguments->igmp) {
         add_new_filter(&filter_exp, IGMP_FILTER_STRING);
-    }
-    if (arguments->mld) {
-        add_new_filter(&filter_exp, MLD_FILTER_STRING);
     }
     return filter_exp;
 }
@@ -279,6 +335,7 @@ int run_sniffer(argument_t *arguments) {
     }
 
     char *filter_exp = create_filter_exp(arguments);
+    printf("This is the filter expression %s\n", filter_exp);
 
     // compile the filter
     int compile_result = pcap_compile(device_handle, &fp, filter_exp, 0, net);
