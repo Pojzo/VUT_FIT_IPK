@@ -3,6 +3,6 @@
 
 #include "arg_handler.h"
 
-int run_sniffer(argument_t *arguments);
+int run_sniffer(arguments_t *arguments);
 
 #endif

@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[]) {
     // parse the arguments from command line
-    argument_t *arguments = parse_arguments(argc, argv);
+    arguments_t *arguments = parse_arguments(argc, argv);
     if (arguments == NULL) {
         return 1;
     }

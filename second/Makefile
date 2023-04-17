@@ -18,7 +18,7 @@ $(EXECUTABLE): $(OBJ_FILES)
 	$(CC) $(CFLAGS) $(OBJ_FILES) -o $@ $(LDFLAGS)
 
 %.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
 clean:
 	rm -f $(OBJ_FILES) $(EXECUTABLE)

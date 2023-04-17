@@ -11,6 +11,8 @@
 #include <netinet/if_ether.h>
 #include <arpa/inet.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
 
 #include "arg_handler.h"
 
@@ -32,7 +34,7 @@ bool at_least_one_filter;
 
 
 // free all structures and return 'return_code'
-static int exit_free(argument_t *arguments, pcap_if_t *all_devs, int return_code) {
+static int exit_free(arguments_t *arguments, pcap_if_t *all_devs, int return_code) {
     arguments_free(arguments);
     pcap_freealldevs(all_devs);
     return return_code;
@@ -86,29 +88,77 @@ static char* format_time(long seconds, long microseconds) {
 
 #define SIZE_ETHERNET 14
 
-static void hex_dump(const u_char *packet, int len) {
-    int i, j;
+static void hex_dump(const u_char *packet, int frame_length) {
+    unsigned char buffer[16];
 
-    for (i = 0; i < len; i += 16) {
-        printf("%06x: ", i);
-        for (j = 0; j < 16; j++) {
-            if (i + j < len) {
-                printf("%02x ", packet[i+j]);
-            } else {
-                printf("   ");
+    for (size_t i = 0; i < (size_t) frame_length; i++) {
+        if (i % 16 == 0) {
+            printf(" ");
+            if (i != 0) {
+                for (size_t x = 0; x < 16; x++) {
+                    if (isprint(buffer[x])) {
+                        printf("%c", buffer[x]);
+                    } else {
+                        printf(".");
+                    }
+                }
             }
+            printf("\n0x%04x: ", (unsigned int) i);
         }
-        printf(" ");
-        for (j = 0; j < 16; j++) {
-            if (i + j < len) {
-                u_char c = packet[i+j];
-                printf("%c", isprint(c) ? c : '.');
-            }
-        }
-        printf("\n");
+
+        buffer[i % 16] = packet[i];
+        printf("%02x ", packet[i]);
     }
+
+    // Print any remaining bytes in the buffer
+    for (int i = frame_length % 16; i < 16; i++) {
+        printf("   ");
+    }
+    for (int i = frame_length - (frame_length % 16); i < frame_length; i++) {
+        if (isprint(buffer[i % 16])) {
+            printf("%c", buffer[i % 16]);
+        } else {
+            printf(".");
+        }
+    }
+    printf("\n");
 }
 
+
+void got_packet_ipv6(const struct pcap_pkthdr *header, const u_char *packet) {
+    const struct ether_header *ethernet = (struct ether_header *) (packet); 
+    const struct ip6_hdr *ip6_header = (struct ip6_hdr*)(packet + SIZE_ETHERNET);
+    int frame_length = header->len;
+    int payload_len = ntohs(ip6_header->ip6_plen);
+
+    unsigned char src_mac[18];
+    unsigned char dst_mac[18];
+
+    char source_ip_str[INET6_ADDRSTRLEN];
+    char dest_ip_str[INET6_ADDRSTRLEN];
+
+    sprintf(src_mac, "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_shost[0], ethernet->ether_shost[1], ethernet->ether_shost[2], ethernet->ether_shost[3], ethernet->ether_shost[4], ethernet->ether_shost[5]);
+    sprintf(dst_mac, "%02x:%02x:%02x:%02x:%02x:%02x", ethernet->ether_dhost[0], ethernet->ether_dhost[1], ethernet->ether_dhost[2], ethernet->ether_dhost[3], ethernet->ether_dhost[4], ethernet->ether_dhost[5]);
+
+    inet_ntop(AF_INET6, &(ip6_header->ip6_src), source_ip_str, INET6_ADDRSTRLEN);
+    inet_ntop(AF_INET6, &(ip6_header->ip6_dst), dest_ip_str, INET6_ADDRSTRLEN);
+
+    // print the mac addresses
+    printf("src MAC: %s\n", src_mac);
+    printf("dst MAC: %s\n", dst_mac);
+
+    // print the frame length
+    printf("frame length: %d bytes\n", (int) frame_length);
+
+    // print the source and destination ips
+    printf("src IP: %s\n", source_ip_str);
+    printf("dest IP: %s\n", dest_ip_str);
+
+    hex_dump(packet, frame_length);
+    printf("\n");
+
+    // struct icmp6_hdr *icmp6_header = (struct icmp6_hdr*)(packet + SIZE_ETHERNET + ip6_header_len);
+}
 
 static void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
     (void) args;
@@ -126,37 +176,29 @@ static void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_c
 
     struct udphdr *udp_header = (struct udphdr*)(packet + SIZE_ETHERNET + ip_header_len);
     struct tcphdr *tcp_header = (struct tcphdr*)(packet + SIZE_ETHERNET + ip_header_len);
-    struct icmphdr *icmp_header = (struct icmphdr*)(packet + SIZE_ETHERNET + ip_header_len);
-    
-    (void) udp_header;
-    (void) tcp_header;
-    (void) icmp_header;
 
     uint16_t src_port;
     uint16_t dst_port;
     unsigned char protocol = ip_header->protocol;
-    printf("%s\n", packet);
+    // check if we got a ipv6 packet
+    if (ntohs(ethernet->ether_type) == ETHERTYPE_IPV6) {
+        got_packet_ipv6(header, packet);
+        return;
+    }
     switch (protocol) {
         case IPPROTO_TCP:
-            printf("This is a TCP packet\n");
             src_port = ntohs(tcp_header->source);
             dst_port = ntohs(tcp_header->dest);
             break;
         case IPPROTO_UDP:
-            // printf("This is a UDP packet\n");
             src_port = ntohs(tcp_header->source);
             dst_port = ntohs(tcp_header->dest);
             break;
-        case IPPROTO_ICMP:
-            printf("This is a ICMP packet\n");
-            break;
-        case IPPROTO_ICMPV6:
-            break;
-
-        default:
-            break;
     }
 
+
+    (void) udp_header;
+    (void) tcp_header;
     // define tcp 
 
     // Extract source and destination IP addresses
@@ -177,7 +219,7 @@ static void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_c
     printf("dst MAC: %s\n", dst_mac);
 
     // print the frame length
-    printf("frame length: %d\n", (int) frame_length);
+    printf("frame length: %d bytes\n", (int) frame_length);
 
     // print the source and destination ips
     printf("src IP: %s\n", source_ip_str);
@@ -189,40 +231,10 @@ static void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_c
         printf("dest port: %hu\n", dst_port);
     }
 
-    unsigned char buffer[16];
-
-    for (size_t i = 0; i < frame_length; i++) {
-        if (i % 16 == 0) {
-            printf(" ");
-            if (i != 0) {
-                for (size_t x = 0; x < 16; x++) {
-                    if (isprint(buffer[x])) {
-                        printf("%c", buffer[x]);
-                    } else {
-                        printf(".");
-                    }
-                }
-            }
-            printf("\n0x%04x: ", i);
-        }
-
-        buffer[i % 16] = packet[i];
-        printf("%02x ", packet[i]);
-    }
-
-    // Print any remaining bytes in the buffer
-    for (int i = frame_length % 16; i < 16; i++) {
-        printf("   ");
-    }
-    for (int i = frame_length - (frame_length % 16); i < frame_length; i++) {
-        if (isprint(buffer[i % 16])) {
-            printf("%c", buffer[i % 16]);
-        } else {
-            printf(".");
-        }
-    }
+    hex_dump(packet, frame_length);
     printf("\n");
 }
+
 
 // add new filter to filter_exp
 static void add_new_filter(char **filter_exp, const char *new_string)  {
@@ -248,7 +260,7 @@ static void add_new_filter(char **filter_exp, const char *new_string)  {
     at_least_one_filter = true;
 }
 
-static char *create_filter_exp(argument_t *arguments) {
+static char *create_filter_exp(arguments_t *arguments) {
     char *filter_exp = (char *) malloc(1);
     filter_exp[0] = '\0';
 
@@ -273,7 +285,7 @@ static char *create_filter_exp(argument_t *arguments) {
     if (arguments->icmp4) {
         add_new_filter(&filter_exp, ICMP4_FILTER_STRING);
     }
-    
+
     if (arguments->ndp && arguments->mld) {
         char buf[100];
         sprintf(buf, "%s and (icmp6[0] == 135 or icmp6[0] == 136 or icmp6[0]== 130 or icmp6[0] == 131)", ICMP6_FILTER_STRING);
@@ -305,7 +317,7 @@ jump:
     return filter_exp;
 }
 
-int run_sniffer(argument_t *arguments) {
+int run_sniffer(arguments_t *arguments) {
     pcap_if_t *all_devs = NULL;
     char errbuf[PCAP_ERRBUF_SIZE];
     bpf_u_int32 mask;		 // The netmask of our sniffing device
@@ -335,7 +347,6 @@ int run_sniffer(argument_t *arguments) {
     }
 
     char *filter_exp = create_filter_exp(arguments);
-    printf("This is the filter expression %s\n", filter_exp);
 
     // compile the filter
     int compile_result = pcap_compile(device_handle, &fp, filter_exp, 0, net);
@@ -350,7 +361,6 @@ int run_sniffer(argument_t *arguments) {
         fprintf(stderr, "Couldn't install filter %s\nError message: %s\n", filter_exp, pcap_geterr(device_handle));
         return exit_free(arguments, all_devs, 1);
     }
-    printf("Filter: %s\n", filter_exp);
     // free(filter_exp);
     pcap_loop(device_handle, arguments->n_packets, got_packet, NULL);
 

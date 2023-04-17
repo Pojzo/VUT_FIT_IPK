@@ -5,14 +5,14 @@
 #include "arg_handler.h"
 
 // print error message, free arguments and return with given exit code
-static void *return_free(argument_t *arguments, const char *msg) {
+static void *return_free(arguments_t *arguments, const char *msg) {
     fprintf(stderr, msg);
     arguments_free(arguments);
     return NULL;
 }
 
 // free arguments->interface if it's defined and the pointer itself
-void arguments_free(argument_t *arguments) {
+void arguments_free(arguments_t *arguments) {
     if (arguments->interface != NULL) {
         free(arguments->interface);
     }
@@ -35,16 +35,16 @@ static inline bool is_option(const char* value) {
 }
 
 // return true if only interface and no other arguments were supplied
-static bool check_interface_only(argument_t *a) {
+static bool check_interface_only(arguments_t *a) {
     bool result = a->tcp || a->udp || a->icmp4 || a->icmp6 || a->igmp || a->mld || a->port_specified || a->n_packets_specified;
 
     // if result is true, that means that something other than interface was specified
     return !result;
 }
 
-// check arguments from command line and return pointer to argument_t
-argument_t *parse_arguments(int argc, char *argv[]) {
-    argument_t *arguments = (argument_t *) malloc(sizeof(argument_t));
+// check arguments from command line and return pointer to arguments_t
+arguments_t *parse_arguments(int argc, char *argv[]) {
+    arguments_t *arguments = (arguments_t *) malloc(sizeof(arguments_t));
     // set default values for the parameters
     arguments->n_packets = 1; // default value for showing packets is 0
     arguments->port = 0; // port 0 means don't filter anything

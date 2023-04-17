@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct argument {
+typedef struct arguments {
     bool interface_only;
     char *interface;
     uint16_t port;
@@ -20,10 +20,10 @@ typedef struct argument {
     bool igmp;
     bool mld;
 
-} argument_t;
+} arguments_t;
 
-argument_t *parse_arguments(int argc, char *argv[]);
-void arguments_free(argument_t *arguments);
+arguments_t *parse_arguments(int argc, char *argv[]);
+void arguments_free(arguments_t *arguments);
 
 
 #endif
